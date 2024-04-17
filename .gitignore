@@ -1,0 +1,10 @@
+.vscode
+.vs
+.settings
+build
+cmake
+Debug
+CAN_Testbench Debug.launch
+CMakeLists.txt
+CMakePresets.json
+vcpkg-configuration.json
