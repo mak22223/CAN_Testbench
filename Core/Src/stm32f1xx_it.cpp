@@ -18,7 +18,7 @@
 /* USER CODE END Header */
 
 /* Includes ------------------------------------------------------------------*/
-#include <main.hpp>
+#include "main.hpp"
 #include "stm32f1xx_it.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -41,7 +41,10 @@
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN PV */
-
+std::function<void()> can1_callback;
+std::function<void()> can2_callback;
+std::function<void()> can3_callback;
+std::function<void()> can4_callback;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -197,6 +200,82 @@ void SysTick_Handler(void)
 /* For the available peripheral interrupt handler names,                      */
 /* please refer to the startup file (startup_stm32f1xx.s).                    */
 /******************************************************************************/
+
+/**
+  * @brief This function handles EXTI line0 interrupt.
+  */
+void EXTI0_IRQHandler(void)
+{
+  /* USER CODE BEGIN EXTI0_IRQn 0 */
+  HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET);
+  __HAL_GPIO_EXTI_CLEAR_IT(CAN1_INT_Pin);
+  while (HAL_GPIO_ReadPin(CAN1_INT_GPIO_Port, CAN1_INT_Pin) == GPIO_PIN_RESET) {
+    can1_callback();
+  }
+  HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_SET);
+  /* USER CODE END EXTI0_IRQn 0 */
+  // HAL_GPIO_EXTI_IRQHandler(CAN1_INT_Pin);
+  /* USER CODE BEGIN EXTI0_IRQn 1 */
+
+  /* USER CODE END EXTI0_IRQn 1 */
+}
+
+/**
+  * @brief This function handles EXTI line1 interrupt.
+  */
+void EXTI1_IRQHandler(void)
+{
+  /* USER CODE BEGIN EXTI1_IRQn 0 */
+  HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET);
+  __HAL_GPIO_EXTI_CLEAR_IT(CAN2_INT_Pin);
+  while (HAL_GPIO_ReadPin(CAN2_INT_GPIO_Port, CAN2_INT_Pin) == GPIO_PIN_RESET) {
+    can2_callback();
+  }
+  HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_SET);
+  /* USER CODE END EXTI1_IRQn 0 */
+  // HAL_GPIO_EXTI_IRQHandler(CAN2_INT_Pin);
+  /* USER CODE BEGIN EXTI1_IRQn 1 */
+
+  /* USER CODE END EXTI1_IRQn 1 */
+}
+
+/**
+  * @brief This function handles EXTI line3 interrupt.
+  */
+void EXTI3_IRQHandler(void)
+{
+  /* USER CODE BEGIN EXTI3_IRQn 0 */
+  HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET);
+  __HAL_GPIO_EXTI_CLEAR_IT(CAN3_INT_Pin);
+  while (HAL_GPIO_ReadPin(CAN3_INT_GPIO_Port, CAN3_INT_Pin) == GPIO_PIN_RESET) {
+    can3_callback();
+  }
+  HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_SET);
+  /* USER CODE END EXTI3_IRQn 0 */
+  // HAL_GPIO_EXTI_IRQHandler(CAN3_INT_Pin);
+  /* USER CODE BEGIN EXTI3_IRQn 1 */
+
+  /* USER CODE END EXTI3_IRQn 1 */
+}
+
+/**
+  * @brief This function handles EXTI line4 interrupt.
+  */
+void EXTI4_IRQHandler(void)
+{
+  /* USER CODE BEGIN EXTI4_IRQn 0 */
+  HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET);
+  __HAL_GPIO_EXTI_CLEAR_IT(CAN4_INT_Pin);
+  while (HAL_GPIO_ReadPin(CAN4_INT_GPIO_Port, CAN4_INT_Pin) == GPIO_PIN_RESET) {
+    can4_callback();
+  }
+  HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_SET);
+  /* USER CODE END EXTI4_IRQn 0 */
+  // HAL_GPIO_EXTI_IRQHandler(CAN4_INT_Pin);
+  /* USER CODE BEGIN EXTI4_IRQn 1 */
+
+  /* USER CODE END EXTI4_IRQn 1 */
+}
 
 /* USER CODE BEGIN 1 */
 

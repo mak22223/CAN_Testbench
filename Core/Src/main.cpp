@@ -17,9 +17,12 @@
   */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
-#include <main.hpp>
+#include "main.hpp"
 #include "mcp2515.hpp"
 
+/* Private includes ----------------------------------------------------------*/
+/* USER CODE BEGIN Includes */
+#include <functional>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -49,6 +52,11 @@ mcp2515::Driver can2(&hspi1, CAN2_CS_GPIO_Port, CAN2_CS_Pin);
 mcp2515::Driver can3(&hspi1, CAN3_CS_GPIO_Port, CAN3_CS_Pin);
 mcp2515::Driver can4(&hspi1, CAN4_CS_GPIO_Port, CAN4_CS_Pin);
 
+extern std::function<void()> can1_callback;
+extern std::function<void()> can2_callback;
+extern std::function<void()> can3_callback;
+extern std::function<void()> can4_callback;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -56,6 +64,7 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_CAN_Init(void);
+static void enableInterrupts();
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -101,38 +110,52 @@ int main(void)
   if (can1.init() != mcp2515::Error::OK) {
     Error_Handler(0x11);
   }
-
+  can1_callback = std::bind(&mcp2515::Driver::interruptHandler, &can1);
   can1.setMode(mcp2515::Mode::CONFIGURATION);
   can1.setSpeed(mcp2515::Speed::MCP_500KBPS);
+  can1.setMode(mcp2515::Mode::NORMAL);
 
   if (can2.init() != mcp2515::Error::OK) {
     Error_Handler(0x12);
   }
-
+  can2_callback = std::bind(&mcp2515::Driver::interruptHandler, &can2);
   can2.setMode(mcp2515::Mode::CONFIGURATION);
   can2.setSpeed(mcp2515::Speed::MCP_500KBPS);
+  can2.setMode(mcp2515::Mode::NORMAL);
 
   if (can3.init() != mcp2515::Error::OK) {
     Error_Handler(0x13);
   }
-
+  can3_callback = std::bind(&mcp2515::Driver::interruptHandler, &can3);
   can3.setMode(mcp2515::Mode::CONFIGURATION);
   can3.setSpeed(mcp2515::Speed::MCP_250KBPS);
 
   if (can4.init() != mcp2515::Error::OK) {
     Error_Handler(0x14);
   }
-
+  can4_callback = std::bind(&mcp2515::Driver::interruptHandler, &can4);
   can4.setMode(mcp2515::Mode::CONFIGURATION);
   can4.setSpeed(mcp2515::Speed::MCP_250KBPS);
+
+  enableInterrupts();
 
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET);
   while (1)
   {
+    static uint32_t can1Timer = HAL_GetTick();
+
+    if (HAL_GetTick() - can1Timer > 1000) {
+      can1Timer = HAL_GetTick();
+
+      char data[] = "aboba";
+      can1.sendFrame(0x7BB, 1, (uint8_t*)data);
+    }
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -269,12 +292,14 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, CAN1_CS_Pin|CAN2_CS_Pin|CAN3_CS_Pin|CAN4_CS_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(GPIOA, CAN1_CS_Pin|CAN2_CS_Pin|CAN3_CS_Pin|CAN4_CS_Pin
+                          |LED2_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin : LED_Pin */
   GPIO_InitStruct.Pin = LED_Pin;
@@ -290,12 +315,45 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
+  /*Configure GPIO pins : CAN1_INT_Pin CAN2_INT_Pin */
+  GPIO_InitStruct.Pin = CAN1_INT_Pin|CAN2_INT_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : LED2_Pin */
+  GPIO_InitStruct.Pin = LED2_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(LED2_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : CAN3_INT_Pin CAN4_INT_Pin */
+  GPIO_InitStruct.Pin = CAN3_INT_Pin|CAN4_INT_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */
 }
 
 /* USER CODE BEGIN 4 */
+void enableInterrupts()
+{
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI0_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI0_IRQn);
 
+  HAL_NVIC_SetPriority(EXTI1_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI1_IRQn);
+
+  HAL_NVIC_SetPriority(EXTI3_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI3_IRQn);
+
+  HAL_NVIC_SetPriority(EXTI4_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI4_IRQn);
+}
 /* USER CODE END 4 */
 
 /**

@@ -7,44 +7,6 @@
 namespace mcp2515
 {
 /*
- * Register masks and bit offsets
- */
-
-#define RXBNCTRL_RXM_MASK   (0x60U)
-#define RXBNCTRL_RXM        (5)
-#define RXBNCTRL_BUKT_MASK  (0x4U)
-#define RXBNCTRL_BUKT       (2)
-
-#define CNF3_SOF_MASK       (0x80U)
-#define CNF3_SOF            (7)
-#define CNF3_WAKFIL_MASK    (0x40U)
-#define CNF3_WAKFIL         (6)
-#define CNF3_PHSEG2_MASK    (0x7U)
-#define CNF3_PHSEG2         (0)
-
-#define CNF2_BLTMODE_MASK   (0x80U)
-#define CNF2_BLTMODE        (7)
-#define CNF2_SAM_MASK       (0x40U)
-#define CNF2_SAM            (6)
-#define CNF2_PHSEG1_MASK    (0x38U)
-#define CNF2_PHSEG1         (3)
-#define CNF2_PRSEG_MASK     (0x7U)
-#define CNF2_PRSEG          (0)
-
-#define CNF1_SJW_MASK       (0xC0U)
-#define CNF1_SJW            (6)
-#define CNF1_BRP_MASK       (0x3FU)
-#define CNF1_BRP            (0)
-
-#define CANCTRL_REQOP_MASK  (0xE0U)
-#define CANCTRL_REQOP       (5)
-
-#define CANSTAT_OPMOD_MASK  (0xE0U)
-#define CANSTAT_OPMOD       (5)
-#define CANSTAT_ICOD_MASK   (0x0EU)
-#define CANSTAT_ICOD        (1)
-
-/*
  * CAN speed timings
  */
 
@@ -71,9 +33,11 @@ namespace mcp2515
 #define MCP_125KBPS_SAM     (1U)
 
 enum class Error {
-  OK = 0U,
-  ERROR,
-  TIMEOUT
+  OK = 0U,            // Function succeeded
+  ERROR,              // Function failed
+  TIMEOUT,
+  INCORRECT_MODE,     // Device was in mode that doesn't support such operation
+  BUFFER_FULL,        // e.g. all TX buffers occupied
 };
 
 enum class Command : uint8_t {
@@ -86,6 +50,13 @@ enum class Command : uint8_t {
   READ_STATUS    = 0xA0,
   RX_STATUS      = 0xB0,
   BIT_MODIFY     = 0x05
+};
+
+enum class TxPriority {
+  LOWEST = 0x00,
+  LOW = 0x01,
+  HIGH = 0x02,
+  HIGHEST = 0x03
 };
 
 enum class Speed {
@@ -196,10 +167,10 @@ public:
   Error setMode(Mode mode);
   Mode getMode();
 
+  Error sendFrame(uint16_t id, uint8_t dlc, uint8_t data[], TxPriority pri = TxPriority::LOW);
+  Error sendFrameExt(uint32_t id, uint8_t dlc, uint8_t data[], TxPriority pri = TxPriority::LOW);
 
   void interruptHandler();
-
-  uint8_t isConnected();
 
 private:
   void selectChip();
@@ -208,14 +179,18 @@ private:
   void readRegisters(Register reg, uint8_t *buf, uint8_t count);
   void writeRegister(Register reg, uint8_t val);
   void writeRegisters(Register reg, uint8_t *vals, uint8_t count);
+  Error sendFrame(uint32_t id, uint8_t dlc, uint8_t data[], bool extId, TxPriority pri = TxPriority::LOW);
+  void writeTxBuffer(uint8_t idx, uint32_t id, uint8_t dlc, uint8_t data[], bool extId, TxPriority pri = TxPriority::LOW);
   void bitSetRegister(Register reg, uint8_t mask, uint8_t val);
+  uint8_t readStatus();
 
 private:
   SPI_HandleTypeDef *d_hspi;
   GPIO_TypeDef *d_gpio;
   uint16_t d_gpioCsPin;
 
-  bool d_connected;
+  Mode d_mode;
+  uint8_t d_freeTxBufMask;
 };
 
 }

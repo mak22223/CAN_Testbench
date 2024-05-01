@@ -34,6 +34,7 @@ extern "C" {
 #endif
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include <functional>
 
 /* USER CODE END Includes */
 
@@ -70,6 +71,20 @@ void Error_Handler(uint8_t errorCode = 0);
 #define CAN3_CS_GPIO_Port GPIOA
 #define CAN4_CS_Pin GPIO_PIN_3
 #define CAN4_CS_GPIO_Port GPIOA
+#define CAN1_INT_Pin GPIO_PIN_0
+#define CAN1_INT_GPIO_Port GPIOB
+#define CAN1_INT_EXTI_IRQn EXTI0_IRQn
+#define CAN2_INT_Pin GPIO_PIN_1
+#define CAN2_INT_GPIO_Port GPIOB
+#define CAN2_INT_EXTI_IRQn EXTI1_IRQn
+#define LED2_Pin GPIO_PIN_9
+#define LED2_GPIO_Port GPIOA
+#define CAN3_INT_Pin GPIO_PIN_3
+#define CAN3_INT_GPIO_Port GPIOB
+#define CAN3_INT_EXTI_IRQn EXTI3_IRQn
+#define CAN4_INT_Pin GPIO_PIN_4
+#define CAN4_INT_GPIO_Port GPIOB
+#define CAN4_INT_EXTI_IRQn EXTI4_IRQn
 
 /* USER CODE BEGIN Private defines */
 
