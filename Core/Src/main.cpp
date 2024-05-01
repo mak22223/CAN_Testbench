@@ -47,16 +47,6 @@ SPI_HandleTypeDef hspi1;
 
 /* USER CODE BEGIN PV */
 
-mcp2515::Driver can1(&hspi1, CAN1_CS_GPIO_Port, CAN1_CS_Pin);
-mcp2515::Driver can2(&hspi1, CAN2_CS_GPIO_Port, CAN2_CS_Pin);
-mcp2515::Driver can3(&hspi1, CAN3_CS_GPIO_Port, CAN3_CS_Pin);
-mcp2515::Driver can4(&hspi1, CAN4_CS_GPIO_Port, CAN4_CS_Pin);
-
-extern std::function<void()> can1_callback;
-extern std::function<void()> can2_callback;
-extern std::function<void()> can3_callback;
-extern std::function<void()> can4_callback;
-
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -64,13 +54,23 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_CAN_Init(void);
-static void enableInterrupts();
+void switchSpiInterrupts(bool state);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+mcp2515::Driver can1(&hspi1, CAN1_CS_GPIO_Port, CAN1_CS_Pin, std::function<void(bool)>(switchSpiInterrupts));
+mcp2515::Driver can2(&hspi1, CAN2_CS_GPIO_Port, CAN2_CS_Pin, std::function<void(bool)>(switchSpiInterrupts));
+mcp2515::Driver can3(&hspi1, CAN3_CS_GPIO_Port, CAN3_CS_Pin, std::function<void(bool)>(switchSpiInterrupts));
+mcp2515::Driver can4(&hspi1, CAN4_CS_GPIO_Port, CAN4_CS_Pin, std::function<void(bool)>(switchSpiInterrupts));
+
+extern std::function<void()> can1_callback;
+extern std::function<void()> can2_callback;
+extern std::function<void()> can3_callback;
+extern std::function<void()> can4_callback;
 
 /* USER CODE END 0 */
 
@@ -122,6 +122,8 @@ int main(void)
   can2.setMode(mcp2515::Mode::CONFIGURATION);
   can2.setSpeed(mcp2515::Speed::MCP_500KBPS);
   can2.setMode(mcp2515::Mode::NORMAL);
+  /// TODO: не должно работать, так как режим уже NORMAL
+  can2.setFilter(0, 0xFFF, 0x7FF, false);
 
   if (can3.init() != mcp2515::Error::OK) {
     Error_Handler(0x13);
@@ -137,7 +139,7 @@ int main(void)
   can4.setMode(mcp2515::Mode::CONFIGURATION);
   can4.setSpeed(mcp2515::Speed::MCP_250KBPS);
 
-  enableInterrupts();
+  switchSpiInterrupts(true);
 
   /* USER CODE END 2 */
 
@@ -152,8 +154,21 @@ int main(void)
     if (HAL_GetTick() - can1Timer > 1000) {
       can1Timer = HAL_GetTick();
 
+      HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
       char data[] = "aboba";
       can1.sendFrame(0x7BB, 1, (uint8_t*)data);
+    }
+
+    while (can2.frameAvailable()) {
+      mcp2515::CanFrame frame;
+      bool overflow = false;
+      uint8_t filter;
+
+      can2.readFrame(frame, filter, overflow);
+
+      if (frame.data[0] == 'a') {
+        HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);
+      }
     }
 
     /* USER CODE END WHILE */
@@ -334,25 +349,30 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI0_IRQn, 0, 0);
+  HAL_NVIC_SetPriority(EXTI1_IRQn, 0, 0);
+  HAL_NVIC_SetPriority(EXTI3_IRQn, 0, 0);
+  HAL_NVIC_SetPriority(EXTI4_IRQn, 0, 0);
+
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */
 }
 
 /* USER CODE BEGIN 4 */
-void enableInterrupts()
+void switchSpiInterrupts(bool state)
 {
-  /* EXTI interrupt init*/
-  HAL_NVIC_SetPriority(EXTI0_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(EXTI0_IRQn);
-
-  HAL_NVIC_SetPriority(EXTI1_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(EXTI1_IRQn);
-
-  HAL_NVIC_SetPriority(EXTI3_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(EXTI3_IRQn);
-
-  HAL_NVIC_SetPriority(EXTI4_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(EXTI4_IRQn);
+  if (state) {
+    HAL_NVIC_EnableIRQ(EXTI0_IRQn);
+    HAL_NVIC_EnableIRQ(EXTI1_IRQn);
+    HAL_NVIC_EnableIRQ(EXTI3_IRQn);
+    HAL_NVIC_EnableIRQ(EXTI4_IRQn);
+  } else {
+    HAL_NVIC_DisableIRQ(EXTI0_IRQn);
+    HAL_NVIC_DisableIRQ(EXTI1_IRQn);
+    HAL_NVIC_DisableIRQ(EXTI3_IRQn);
+    HAL_NVIC_DisableIRQ(EXTI4_IRQn);
+  }
 }
 /* USER CODE END 4 */
 
