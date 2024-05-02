@@ -121,9 +121,11 @@ int main(void)
   can2_callback = std::bind(&mcp2515::Driver::interruptHandler, &can2);
   can2.setMode(mcp2515::Mode::CONFIGURATION);
   can2.setSpeed(mcp2515::Speed::MCP_500KBPS);
+  can2.setFilter(0, 0x1FFFFFFF, 0xFFFFFF, true);
+  can2.setFilter(1, 0x1FFFFFFF, 0xFFFFFFFF, true);
+  can2.setFilter(2, 0x7FF, 0x222, false);
+  can2.setFilter(3, 0x7FF, 0x1AA, false);
   can2.setMode(mcp2515::Mode::NORMAL);
-  /// TODO: не должно работать, так как режим уже NORMAL
-  can2.setFilter(0, 0xFFF, 0x7FF, false);
 
   if (can3.init() != mcp2515::Error::OK) {
     Error_Handler(0x13);
@@ -150,13 +152,17 @@ int main(void)
   while (1)
   {
     static uint32_t can1Timer = HAL_GetTick();
+    static uint32_t led2Timer = HAL_GetTick();
 
     if (HAL_GetTick() - can1Timer > 1000) {
       can1Timer = HAL_GetTick();
 
       HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
-      char data[] = "aboba";
-      can1.sendFrame(0x7BB, 1, (uint8_t*)data);
+      char data[] = "abobadfg";
+      can1.sendFrameExt(0xFFFFFFFF, 8, (uint8_t*)data);
+      can1.sendFrame(0x222, 8, (uint8_t*)data);
+      can1.sendFrame(0x1AA, 8, (uint8_t*)data);
+      HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);
     }
 
     while (can2.frameAvailable()) {
@@ -166,9 +172,16 @@ int main(void)
 
       can2.readFrame(frame, filter, overflow);
 
-      if (frame.data[0] == 'a') {
-        HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);
+      if (filter == 3) {
+        led2Timer = HAL_GetTick();
+        HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET);
       }
+    }
+
+    if (HAL_GetTick() - led2Timer > 200) {
+      led2Timer = HAL_GetTick();
+
+      HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_SET);
     }
 
     /* USER CODE END WHILE */

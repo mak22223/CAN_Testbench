@@ -41,12 +41,9 @@ Error Driver::init()
     return Error::ERROR;
   }
 
-  // Allow to receive all messages, regardless filters, and rollover
-  // bitSetRegister(Register::RXB0CTRL, RXBNCTRL_RXM_MASK | RXBNCTRL_BUKT_MASK,
-  //     (0b11 << RXBNCTRL_RXM) | (1 << RXBNCTRL_BUKT));
-  // bitSetRegister(Register::RXB1CTRL, RXBNCTRL_RXM_MASK, 0b11 << RXBNCTRL_RXM);
+  d_mode = Mode::CONFIGURATION;
 
-  // Enable TXC interrupts for all TX buffers
+  // Enable TXC, RXC interrupts for all buffers
   bitSetRegister(
     Register::CANINTE, 
     CANINTE_TX2IE_MASK | CANINTE_TX1IE_MASK | CANINTE_TX0IE_MASK | CANINTE_RX1IE_MASK | CANINTE_RX0IE_MASK,
@@ -54,11 +51,6 @@ Error Driver::init()
 
   d_freeTxBufMask = (1 << 2) | (1 << 1) | (1 << 0);
   d_recvFramesBufMask = 0;
-
-  if (setSpeed(Speed::MCP_500KBPS) == Error::ERROR) {
-    d_switchIsr(true);
-    return Error::ERROR;
-  }
 
   d_switchIsr(true);
   return Error::OK;
@@ -233,6 +225,7 @@ Error Driver::setMode(Mode mode)
   d_switchIsr(true);
 
   if ((canstat & CANSTAT_OPMOD_MASK) >> CANSTAT_OPMOD == (uint8_t)mode) {
+    d_mode = mode;
     return Error::OK;
   }
 
@@ -333,7 +326,7 @@ void Driver::interruptHandler()
 
     if ((rxStatus & 0xC0) == 0x80) {
       // only RXB1 present therefore data valid for RXB1
-      d_matchedFilter[0] = rxStatus & 0x7;
+      d_matchedFilter[1] = rxStatus & 0x7;
       readRxBuffer(1);
     }
   } else {
