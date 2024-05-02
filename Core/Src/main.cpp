@@ -110,14 +110,22 @@ int main(void)
   if (can1.init() != mcp2515::Error::OK) {
     Error_Handler(0x11);
   }
+  if (can2.init() != mcp2515::Error::OK) {
+    Error_Handler(0x12);
+  }
+  if (can3.init() != mcp2515::Error::OK) {
+    Error_Handler(0x13);
+  }
+  if (can4.init() != mcp2515::Error::OK) {
+    Error_Handler(0x14);
+  }
+
   can1_callback = std::bind(&mcp2515::Driver::interruptHandler, &can1);
   can1.setMode(mcp2515::Mode::CONFIGURATION);
   can1.setSpeed(mcp2515::Speed::MCP_500KBPS);
   can1.setMode(mcp2515::Mode::NORMAL);
 
-  if (can2.init() != mcp2515::Error::OK) {
-    Error_Handler(0x12);
-  }
+  
   can2_callback = std::bind(&mcp2515::Driver::interruptHandler, &can2);
   can2.setMode(mcp2515::Mode::CONFIGURATION);
   can2.setSpeed(mcp2515::Speed::MCP_500KBPS);
@@ -127,19 +135,18 @@ int main(void)
   can2.setFilter(3, 0x7FF, 0x1AA, false);
   can2.setMode(mcp2515::Mode::NORMAL);
 
-  if (can3.init() != mcp2515::Error::OK) {
-    Error_Handler(0x13);
-  }
+  
   can3_callback = std::bind(&mcp2515::Driver::interruptHandler, &can3);
   can3.setMode(mcp2515::Mode::CONFIGURATION);
   can3.setSpeed(mcp2515::Speed::MCP_250KBPS);
+  can3.setMode(mcp2515::Mode::NORMAL);
 
-  if (can4.init() != mcp2515::Error::OK) {
-    Error_Handler(0x14);
-  }
+  
   can4_callback = std::bind(&mcp2515::Driver::interruptHandler, &can4);
   can4.setMode(mcp2515::Mode::CONFIGURATION);
   can4.setSpeed(mcp2515::Speed::MCP_250KBPS);
+  can4.setFilter(0, 0x0, 0x0, false);
+  can4.setMode(mcp2515::Mode::NORMAL);
 
   switchSpiInterrupts(true);
 
@@ -149,10 +156,13 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
   HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, GPIO_PIN_RESET);
   while (1)
   {
     static uint32_t can1Timer = HAL_GetTick();
     static uint32_t led2Timer = HAL_GetTick();
+    static uint32_t can3Timer = HAL_GetTick();
+    static uint32_t led3Timer = HAL_GetTick();
 
     if (HAL_GetTick() - can1Timer > 1000) {
       can1Timer = HAL_GetTick();
@@ -187,6 +197,35 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+    if (HAL_GetTick() - can3Timer > 1500) {
+      can3Timer = HAL_GetTick();
+
+      HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
+      char data[] = "maximgat";
+      can3.sendFrameExt(0xFFFFFFFF, 4, (uint8_t*)data);
+      can3.sendFrame(0x1AA, 2, (uint8_t*)data);
+      HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);
+    }
+
+    while (can4.frameAvailable()) {
+      mcp2515::CanFrame frame;
+      bool overflow = false;
+      uint8_t filter;
+
+      can4.readFrame(frame, filter, overflow);
+
+      if (frame.data[0] == 'm') {
+        led3Timer = HAL_GetTick();
+        HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, GPIO_PIN_RESET);
+      }
+    }
+
+    if (HAL_GetTick() - led3Timer > 200) {
+      led3Timer = HAL_GetTick();
+
+      HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, GPIO_PIN_SET);
+    }
+
   }
   /* USER CODE END 3 */
 }
@@ -327,7 +366,7 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOA, CAN1_CS_Pin|CAN2_CS_Pin|CAN3_CS_Pin|CAN4_CS_Pin
-                          |LED2_Pin, GPIO_PIN_SET);
+                          |LED3_Pin|LED2_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin : LED_Pin */
   GPIO_InitStruct.Pin = LED_Pin;
@@ -343,24 +382,18 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : CAN1_INT_Pin CAN2_INT_Pin */
-  GPIO_InitStruct.Pin = CAN1_INT_Pin|CAN2_INT_Pin;
+  /*Configure GPIO pins : CAN1_INT_Pin CAN2_INT_Pin CAN3_INT_Pin CAN4_INT_Pin */
+  GPIO_InitStruct.Pin = CAN1_INT_Pin|CAN2_INT_Pin|CAN3_INT_Pin|CAN4_INT_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : LED2_Pin */
-  GPIO_InitStruct.Pin = LED2_Pin;
+  /*Configure GPIO pins : LED3_Pin LED2_Pin */
+  GPIO_InitStruct.Pin = LED3_Pin|LED2_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(LED2_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pins : CAN3_INT_Pin CAN4_INT_Pin */
-  GPIO_InitStruct.Pin = CAN3_INT_Pin|CAN4_INT_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /* EXTI interrupt init*/
   HAL_NVIC_SetPriority(EXTI0_IRQn, 0, 0);

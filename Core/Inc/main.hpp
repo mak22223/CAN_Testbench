@@ -77,6 +77,8 @@ void Error_Handler(uint8_t errorCode = 0);
 #define CAN2_INT_Pin GPIO_PIN_1
 #define CAN2_INT_GPIO_Port GPIOB
 #define CAN2_INT_EXTI_IRQn EXTI1_IRQn
+#define LED3_Pin GPIO_PIN_8
+#define LED3_GPIO_Port GPIOA
 #define LED2_Pin GPIO_PIN_9
 #define LED2_GPIO_Port GPIOA
 #define CAN3_INT_Pin GPIO_PIN_3

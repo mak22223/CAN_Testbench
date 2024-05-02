@@ -26,9 +26,11 @@ Driver::Driver(SPI_HandleTypeDef *hspi, GPIO_TypeDef *gpio, uint16_t gpioCsPin, 
 Error Driver::init()
 {
   // Controller reset
-  d_switchIsr(false);
+  Command cmd = Command::RESET;
   deselectChip();
-  reset();
+  selectChip();
+  HAL_SPI_Transmit(d_hspi, (uint8_t*)&cmd, 1, 1);
+  deselectChip();
   HAL_Delay(2);
 
   // Check if there is MCP2515 connected
@@ -36,8 +38,6 @@ Error Driver::init()
   readRegister(Register::CANCTRL, readBuf);
 
   if (readBuf[0] != 0x87) {
-    /// TODO: заменить на объект с освобождением ресурса при выходе из области видимости
-    d_switchIsr(true);
     return Error::ERROR;
   }
 
@@ -52,7 +52,6 @@ Error Driver::init()
   d_freeTxBufMask = (1 << 2) | (1 << 1) | (1 << 0);
   d_recvFramesBufMask = 0;
 
-  d_switchIsr(true);
   return Error::OK;
 }
 
@@ -168,10 +167,12 @@ Error Driver::setSpeed(Speed speed)
       return Error::ERROR;
   }
 
+  d_switchIsr(false);
   writeRegisters(Register::CNF3, sendBuf, sizeof(sendBuf));
 
   uint8_t read[sizeof(sendBuf)];
   readRegisters(Register::CNF3, read, sizeof(sendBuf));
+  d_switchIsr(true);
 
   if (memcmp(sendBuf, read, sizeof(sendBuf)) == 0) {
     return Error::OK;
@@ -252,8 +253,6 @@ Error Driver::sendFrame(uint32_t id, uint8_t dlc, uint8_t data[], bool extId, Tx
     return Error::INCORRECT_MODE;
   }
 
-  d_switchIsr(false);
-
   if ((d_freeTxBufMask & 0x07) == 0) {
     return Error::BUFFER_FULL;
   }
@@ -269,6 +268,7 @@ Error Driver::sendFrame(uint32_t id, uint8_t dlc, uint8_t data[], bool extId, Tx
     return Error::ERROR;
   }
 
+  d_switchIsr(false);
   writeTxBuffer(txBufIdx, id, dlc, data, extId, pri);
   d_switchIsr(true);
 
